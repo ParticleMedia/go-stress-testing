@@ -63,6 +63,7 @@ func init() {
 }
 
 // getRequestList 获取请求列表
+// 需执行init()之后，len(clientList.list)才不为0
 func getRequestList(request *model.Request) []*model.Request {
 	if len(clientList.list) <= 0 {
 		return []*model.Request{request}

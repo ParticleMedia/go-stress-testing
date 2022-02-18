@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 
-echo "usage: $0 concurrency qps"
+echo "usage: $0 urlfile concurrency qps"
 
-go run main.go -c $1 -n 10000 -p curl/din --qps $2 -sync
+go run main.go -n 10000 -p $1 -c $2 --qps $3 -sync
 
