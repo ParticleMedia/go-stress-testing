@@ -31,7 +31,7 @@ func init() {
 }
 
 // Dispose 处理函数
-func Dispose(concurrency, totalNumber uint64, request *model.Request) {
+func Dispose(concurrency, totalNumber uint64, request *model.Request, qps int) {
 	// 设置接收数据缓存
 	ch := make(chan *model.RequestResults, 1000)
 	var (
@@ -39,6 +39,8 @@ func Dispose(concurrency, totalNumber uint64, request *model.Request) {
 		wgReceiving sync.WaitGroup // 数据处理完成
 	)
 	wgReceiving.Add(1)
+
+	// 一个goroutine 用来接收结果并计算 （交互的chan是ch）
 	go statistics.ReceivingResults(concurrency, ch, &wgReceiving)
 
 	if request.Keepalive {
@@ -49,7 +51,7 @@ func Dispose(concurrency, totalNumber uint64, request *model.Request) {
 		wg.Add(1)
 		switch request.Form {
 		case model.FormTypeHTTP:
-			go golink.HTTP(i, ch, totalNumber, &wg, request)
+			go golink.HTTP(i, ch, totalNumber, &wg, request, qps/int(concurrency))
 		case model.FormTypeWebSocket:
 			switch connectionMode {
 			case 1:

@@ -1,0 +1,1 @@
+curl 'http://172.31.30.248:9771/predict?proto=1' -X POST  --data-binary '@/home/services/leilulu/code/req_log/feature_server_reqs/0bT7uWlB_0cMpEQzM'

@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/link1st/go-stress-testing/global"
 	"github.com/link1st/go-stress-testing/model"
 	"github.com/link1st/go-stress-testing/server"
 )
@@ -27,18 +28,20 @@ func (a *array) Set(s string) error {
 }
 
 var (
-	concurrency uint64  = 1       // 并发数
-	totalNumber uint64  = 1       // 请求数(单个并发/协程)
-	debugStr            = "false" // 是否是debug
-	requestURL          = ""      // 压测的url 目前支持，http/https ws/wss
-	path                = ""      // curl文件路径 http接口压测，自定义参数设置
-	verify              = ""      // verify 验证方法 在server/verify中 http 支持:statusCode、json webSocket支持:json
-	headers     array             // 自定义头信息传递给服务器
-	body        = ""              // HTTP POST方式传送数据
-	maxCon      = 1               // 单个连接最大请求数
-	code        = 200             //成功状态码
-	http2       = false           // 是否开http2.0
-	keepalive   = false           // 是否开启长连接
+	concurrency uint64 = 1       // 并发数
+	totalNumber uint64 = 1       // 请求数(单个并发/协程)
+	debugStr           = "false" // 是否是debug
+	requestURL         = ""      // 压测的url 目前支持，http/https ws/wss
+	path               = ""      // curl文件路径 http接口压测，自定义参数设置
+	verify             = ""      // verify 验证方法 在server/verify中 http 支持:statusCode、json webSocket支持:json
+	headers     array            // 自定义头信息传递给服务器
+	body               = ""      // HTTP POST方式传送数据
+	maxCon             = 1       // 单个连接最大请求数
+	code               = 200     //成功状态码
+	http2              = false   // 是否开http2.0
+	keepalive          = false   // 是否开启长连接
+
+	qps int = 0
 )
 
 func init() {
@@ -54,6 +57,9 @@ func init() {
 	flag.IntVar(&code, "code", code, "请求成功的状态码")
 	flag.BoolVar(&http2, "http2", http2, "是否开http2.0")
 	flag.BoolVar(&keepalive, "k", keepalive, "是否开启长连接")
+
+	flag.IntVar(&qps, "qps", 0, "QPS")
+	flag.BoolVar(&global.EnableStepSync, "sync", false, "StepSync")
 	// 解析参数
 	flag.Parse()
 }
@@ -70,6 +76,14 @@ func main() {
 		flag.Usage()
 		return
 	}
+
+	if qps == 0 {
+		qps = int(concurrency)
+	} else if qps%int(concurrency) > 0 {
+		fmt.Println("qps is invalid, which should be multiple of the given concurrency")
+		return
+	}
+
 	debug := strings.ToLower(debugStr) == "true"
 	request, err := model.NewRequest(requestURL, verify, code, 0, debug, path, headers, body, maxCon, http2, keepalive)
 	if err != nil {
@@ -78,7 +92,12 @@ func main() {
 	}
 	fmt.Printf("\n 开始启动  并发数:%d 请求数:%d 请求参数: \n", concurrency, totalNumber)
 	request.Print()
+
+	if global.EnableStepSync {
+		go global.Feed(qps, concurrency)
+	}
+
 	// 开始处理
-	server.Dispose(concurrency, totalNumber, request)
+	server.Dispose(concurrency, totalNumber, request, qps)
 	return
 }

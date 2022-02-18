@@ -4,6 +4,7 @@ package model
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -57,6 +58,7 @@ func ParseTheFile(path string) (curl *CURL, err error) {
 	}
 	data := string(dataBytes)
 	for len(data) > 0 {
+		fmt.Println("data: ", data)
 		if strings.HasPrefix(data, "curl") {
 			data = data[5:]
 		}
@@ -70,6 +72,7 @@ func ParseTheFile(path string) (curl *CURL, err error) {
 			break
 		}
 		key = strings.TrimSpace(data[:index])
+		fmt.Println("key: ", key)
 		data = data[index+1:]
 		data = strings.TrimSpace(data)
 		// url
@@ -116,8 +119,10 @@ func ParseTheFile(path string) (curl *CURL, err error) {
 		if key == "" {
 			continue
 		}
+		fmt.Println("key ", key, ", value: ", value)
 		curl.Data[key] = append(curl.Data[key], value)
 	}
+	fmt.Println("curl.Data: ", curl.Data)
 	return
 }
 
@@ -156,8 +161,16 @@ func (c *CURL) GetMethod() (method string) {
 func (c *CURL) defaultMethod() (method string) {
 	method = "GET"
 	body := c.GetBody()
-	if len(body) > 0 {
-		return "POST"
+	switch body.(type) {
+	case string:
+		if len(body.(string)) > 0 {
+			return "POST"
+		}
+
+	case []byte:
+		if len(body.([]byte)) > 0 {
+			return "POST"
+		}
 	}
 	return
 }
@@ -180,16 +193,42 @@ func (c *CURL) GetHeadersStr() string {
 	return string(bytes)
 }
 
+func (c *CURL) isDataBinary() bool {
+	_, ok := c.Data["--data-binary"]
+	return ok
+}
+
 // GetBody 获取body
-func (c *CURL) GetBody() (body string) {
+func (c *CURL) GetBody() interface{} {
 	keys := []string{"--data", "-d", "--data-urlencode", "--data-raw", "--data-binary"}
 	value := c.getDataValue(keys)
+	fmt.Println("value ", value)
 	if len(value) <= 0 {
-		body = c.getPostForm()
-		return
+		body := c.getPostForm()
+		return body
 	}
-	body = value[0]
-	return
+	body := value[0]
+	fmt.Println("body ", body)
+	fmt.Println(body[0], body[1], body[2])
+	// TODO
+	if !strings.HasPrefix(body, "@") {
+		fmt.Println("body not start with @")
+		return body
+	} else {
+		fmt.Println("body start with @")
+		if c.isDataBinary() {
+			fmt.Println("body is data binary")
+			bodyBinary, err := ioutil.ReadFile(body[1:])
+			if err == nil {
+				return bodyBinary
+			} else {
+				fmt.Println("read from file err ", err)
+			}
+		} else {
+			// TODO
+		}
+	}
+	return body
 }
 
 // getPostForm get post form

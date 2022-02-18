@@ -2,21 +2,31 @@
 package golink
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
+	"github.com/link1st/go-stress-testing/global"
 	"github.com/link1st/go-stress-testing/model"
 	"github.com/link1st/go-stress-testing/server/client"
+	"golang.org/x/time/rate"
 )
 
 // HTTP 请求
 func HTTP(chanID uint64, ch chan<- *model.RequestResults, totalNumber uint64, wg *sync.WaitGroup,
-	request *model.Request) {
+	request *model.Request, workerQps int) {
 	defer func() {
 		wg.Done()
 	}()
+	rateLimiter := rate.NewLimiter(rate.Limit(workerQps), 1)
 	// fmt.Printf("启动协程 编号:%05d \n", chanID)
 	for i := uint64(0); i < totalNumber; i++ {
+		//time.Sleep(time.Duration(sleepInter) * time.Millisecond)
+		if global.EnableStepSync {
+			<-global.ReadyCh
+		} else {
+			rateLimiter.Wait(context.Background())
+		}
 		list := getRequestList(request)
 		isSucceed, errCode, requestTime, contentLength := sendList(list)
 		requestResults := &model.RequestResults{
@@ -27,6 +37,9 @@ func HTTP(chanID uint64, ch chan<- *model.RequestResults, totalNumber uint64, wg
 		}
 		requestResults.SetID(chanID, i)
 		ch <- requestResults
+		if global.EnableStepSync {
+			global.DoneCh <- true
+		}
 	}
 
 	return

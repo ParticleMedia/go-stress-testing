@@ -2,6 +2,7 @@
 package model
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -77,7 +78,7 @@ type Request struct {
 	Form      string            // http/webSocket/tcp
 	Method    string            // 方法 GET/POST/PUT
 	Headers   map[string]string // Headers
-	Body      string            // body
+	Body      interface{}            // body
 	Verify    string            // 验证的方法
 	Timeout   time.Duration     // 请求超时时间
 	Debug     bool              // 是否开启Debug模式
@@ -89,7 +90,13 @@ type Request struct {
 
 // GetBody 获取请求数据
 func (r *Request) GetBody() (body io.Reader) {
-	return strings.NewReader(r.Body)
+	switch r.Body.(type) {
+	case string:
+		return strings.NewReader(r.Body.(string))
+	case []byte:
+		return bytes.NewReader(r.Body.([]byte))
+	}
+	return nil
 }
 
 // getVerifyKey 获取校验 key
@@ -126,7 +133,7 @@ func NewRequest(url string, verify string, code int, timeout time.Duration, debu
 	var (
 		method  = "GET"
 		headers = make(map[string]string)
-		body    string
+		body    interface{}
 	)
 	if path != "" {
 		var curl *CURL
@@ -236,7 +243,7 @@ func (r *Request) Print() {
 	}
 	result := fmt.Sprintf("request:\n form:%s \n url:%s \n method:%s \n headers:%v \n", r.Form, r.URL, r.Method,
 		r.Headers)
-	result = fmt.Sprintf("%s data:%v \n", result, r.Body)
+	// result = fmt.Sprintf("%s data:%v \n", result, r.Body)
 	result = fmt.Sprintf("%s verify:%s \n timeout:%s \n debug:%v \n", result, r.Verify, r.Timeout, r.Debug)
 	result = fmt.Sprintf("%s http2.0：%v \n keepalive：%v \n maxCon:%v ", result, r.HTTP2, r.Keepalive, r.MaxCon)
 	fmt.Println(result)
